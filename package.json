@@ -1,0 +1,22 @@
+{
+  "name": "mmm-stockcharts",
+  "version": "1.0.0",
+  "description": "MagicMirror module showing charts for multiple stocks including analysis functions.",
+  "main": "MMM-StockCharts.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lavolp3/MMM-StockCharts.git"
+  },
+  "author": "Dirk Kovert (lavolp3)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/lavolp3/MMM-StockCharts/issues"
+  },
+  "homepage": "https://github.com/lavolp3/MMM-StockCharts#readme",
+  "dependencies": {
+    "highcharts": "^7.2.1"
+  }
+}

@@ -1,0 +1,50 @@
+.MMM-StockCharts #stockChart {
+  width: 500px;
+  height: 400px;
+}
+
+#AVSTOCK_SERIES .stock {
+  display:flex;
+  flex-direction:column;
+}
+
+#AVSTOCK_SERIES .anchor {
+  display:flex;
+  flex-direction:row;
+}
+
+#AVSTOCK_SERIES .symbol {
+  font-size: 16px;
+  color:#FFF;
+}
+
+#AVSTOCK .stock .symbol {
+  color:#FFF;
+  font-weight:bold;
+  text-align:left;
+}
+
+#AVSTOCK .stock .price {
+  color:#FF9;
+  font-weight:bold;
+}
+
+#AVSTOCK .up .change,
+#AVSTOCK .up .changeP {
+  color: #080;
+}
+
+#AVSTOCK .down .change,
+#AVSTOCK .down .changeP {
+  color: #F99;
+}
+
+#AVSTOCK .up .change::before,
+#AVSTOCK .up .changeP::before {
+  content: "▲";
+}
+
+#AVSTOCK .down .change::before,
+#AVSTOCK .down .changeP::before {
+  content: "▼";
+}
