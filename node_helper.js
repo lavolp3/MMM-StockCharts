@@ -53,25 +53,18 @@ module.exports = NodeHelper.create({
       }
       if (data["Time Series (Daily)"]) {
         //console.log("[AVSTOCK] Response is parsed - ", symbol)
-        this.prepareData(data["Time Series (Daily)"]);
+        this.processData(symbol, data);
       }
     })
   },
 
 
-  prepareData: function(series) {
+  processData: function(symbol, data) {
     // split the data set into ohlc and volume
-    var ohlc = [],
-      volume = [],
-      dataLength = data.length,
-      // set the allowed units for data grouping
-      groupingUnits = [[
-        'week',                         // unit name
-        [1]                             // allowed multiples
-      ], [
-        'month',
-        [1, 2, 3, 4, 6]
-      ]];
+    var series = data["Time Series (Daily)"],
+      ohlc = [],
+      volume = [];
+
     var keys = Object.keys(series);
     var dayLimit = (this.config.chartDays > 90) ? 90 : this.config.chartDays;
     keys = keys.slice(0, dayLimit).sort();
@@ -91,6 +84,13 @@ module.exports = NodeHelper.create({
         parseInt(series[index]["5. open"]) // the volume
       ]);
     }
+    this.sendSocketNotification("UPDATE_STOCK", {
+      stock: symbol,
+      data: {
+        ohlc: ohlc,
+        volume: volume
+      }
+    });
   },
 
   log: function (msg) {

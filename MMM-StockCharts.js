@@ -6,7 +6,7 @@ Module.register("MMM-StockCharts", {
     timeFormat: "DD-MM HH:mm",
     symbols : ["MNKD"],
     alias: ["APPLE", "", "SAMSUNG Electronics"],
-    tickerDuration: 60,
+    updateInterval: 10 * 1000,
     chartDays: 60,
     decimals : 4,
     candleSticks: false,
@@ -14,6 +14,11 @@ Module.register("MMM-StockCharts", {
     showMA: "SMA",           //can be "SMA" or "EMA"
     maPeriod: "200",         //can be any numerical value. 200 is common in stock analysis
     premiumAccount: false,   // To change poolInterval, set this to true - Only For Premium Account
+    debug: true
+  },
+
+  getScripts: function() {
+    return [this.file("node_modules/highcharts/highstock.js")];
   },
 
   getStyles: function() {
@@ -21,15 +26,36 @@ Module.register("MMM-StockCharts", {
   },
 
   start: function() {
+    console.log("Starting module: "+this.name);
     this.sendSocketNotification("GET_STOCKDATA", this.config);
     this.stocks = {};
-    this.isStarted = false;
+    this.loaded = false;
+    var _this = this;
+    var count = 0;
+    setInterval(() => {
+      if (_this.loaded == true) {
+        if (_this.stocks[_this.config.symbols[count]].hasOwnProperty(data)) {
+          _this.drawChart(_this.stocks[_this.config.symbols[count]]);
+        }
+        count = (count == _this.config.symbols.length - 1) ? 0 : count + 1;
+      }
+    }, this.config.updateInterval)
   },
 
   getDom: function() {
     var wrapper = document.createElement("div");
     wrapper.id = "stockChart";
     return wrapper;
+  },
+
+  socketNotificationReceived: function(noti, payload) {
+    if (noti == "UPDATE_QUOTE") {
+      this.log(payload);
+      if (this.config.symbols.includes(payload.symbol)) {
+        this.stocks[payload.symbol] = payload.data;
+        this.loaded = true;
+      }
+    }
   },
 
   getStockName: function(symbol) {
@@ -41,9 +67,92 @@ Module.register("MMM-StockCharts", {
     return stockAlias;
   },
 
+  drawChart: function(stock) {
 
-  prepareChart: function() {
-    var wrapper = document.getElementById("AVSTOCK");
+    // set the allowed units for data grouping
+    groupingUnits = [[
+      'week',                         // unit name
+      [1]                             // allowed multiples
+    ], [
+      'month',
+      [1, 2, 3, 4, 6]
+    ]];
+
+    // create the chart
+    Highcharts.stockChart('container', {
+      rangeSelector: {
+        selected: 1,
+        enabled: false
+      },
+
+      title: {
+        text: stock
+      },
+
+      yAxis: [{
+        labels: {
+          align: 'right',
+          x: -3
+        },
+        title: {
+          //text: 'OHLC'
+        },
+        height: '70%',
+        lineWidth: 2,
+        resize: {
+          enabled: true
+        }
+      }, {
+        labels: {
+          align: 'right',
+          x: -3
+        },
+        title: {
+            //text: 'Volume'
+        },
+        top: '75%',
+        height: '25%',
+        offset: 0,
+        lineWidth: 2
+      }],
+
+      tooltip: {
+        split: true
+      },
+
+      exporting: {
+    		enabled: false,
+      },
+
+      navigator: {
+    		enabled: false,
+      },
+      scrollbar: {
+    		enabled: false,
+      },
+
+      series: [{
+        type: 'candlestick',
+        name: stock,
+        data: this.stocks[stock].data.ohlc,
+        dataGrouping: {
+          units: groupingUnits
+        }
+      }, {
+        type: 'column',
+        name: 'Volume',
+        data: this.stocks[stock].data.volume,
+        yAxis: 1,
+        dataGrouping: {
+          units: groupingUnits
+        }
+      }]
+    });
+  },
+
+
+/*  prepareChart: function() {
+    var wrapper = document.getElementById("stockChart");
     wrapper.innerHTML = "";
 
     var stock = document.createElement("div");
@@ -89,21 +198,6 @@ Module.register("MMM-StockCharts", {
     cvs = document.getElementById("AVSTOCK_CANVAS");
     cvs.width = cvs.clientWidth;
     cvs.height = cvs.clientHeight;
-  },
-
-  socketNotificationReceived: function(noti, payload) {
-    if (noti == "UPDATE_QUOTE") {
-      if (payload.hasOwnProperty('symbol')) {
-        this.stocks[payload.symbol] = payload
-        this.updateQuote(payload)
-      }
-    }
-    if (noti == "UPDATE_SERIES") {
-      this.updateSeries(payload)
-    }
-    if (noti == "UPDATE_MA") {
-      this.drawMA(payload)
-    }
   },
 
   drawSeries: function(series) {
@@ -216,5 +310,13 @@ Module.register("MMM-StockCharts", {
     setTimeout(()=>{
       tr.className = "stock " + ud;
     }, 1500);
+  },
+
+*/
+
+  log: function (msg) {
+    if (this.config && this.config.debug) {
+      console.log(this.name + ":", JSON.stringify(msg));
+    }
   },
 })
