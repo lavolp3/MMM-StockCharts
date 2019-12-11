@@ -11,11 +11,13 @@ Module.register("MMM-StockCharts", {
     decimals : 4,
     candleSticks: false,
     coloredCandles: true,
-    showMA: "SMA",           //can be "SMA" or "EMA"
+    ma: ["SMA"],           //can be "SMA" or "EMA"
     maPeriod: "200",         //can be any numerical value. 200 is common in stock analysis
     premiumAccount: false,   // To change poolInterval, set this to true - Only For Premium Account
     debug: true
   },
+
+  stocks: {},
 
   getScripts: function() {
     return [this.file("node_modules/highcharts/highstock.js")];
@@ -28,18 +30,23 @@ Module.register("MMM-StockCharts", {
   start: function() {
     console.log("Starting module: "+this.name);
     this.sendSocketNotification("GET_STOCKDATA", this.config);
-    this.stocks = {};
     this.loaded = false;
-    var _this = this;
+    this.updateCycle();
+  },
+
+  updateCycle: function() {
+    var self = this;
     var count = 0;
-    setInterval(() => {
-      if (_this.loaded == true) {
-        if (_this.stocks[_this.config.symbols[count]].hasOwnProperty(data)) {
-          _this.drawChart(_this.stocks[_this.config.symbols[count]]);
-        }
-        count = (count == _this.config.symbols.length - 1) ? 0 : count + 1;
+    setInterval(function() {
+      self.log("Update...");
+      if (self.loaded == true) {
+        //if (self.stocks[self.config.symbols[count]].hasOwnProperty(data)) {
+          self.drawChart(self.config.symbols[count]);
+          self.log("Updating chart");
+        //}
+        count = (count == self.config.symbols.length - 1) ? 0 : count + 1;
       }
-    }, this.config.updateInterval)
+    }, self.config.updateInterval);
   },
 
   getDom: function() {
@@ -49,10 +56,12 @@ Module.register("MMM-StockCharts", {
   },
 
   socketNotificationReceived: function(noti, payload) {
-    if (noti == "UPDATE_QUOTE") {
+    if (noti == "UPDATE_STOCK") {
       this.log(payload);
-      if (this.config.symbols.includes(payload.symbol)) {
-        this.stocks[payload.symbol] = payload.data;
+      if (this.config.symbols.includes(payload.stock)) {
+        this.log("Updating stock data...");
+        this.stocks[payload.stock] = payload.data;
+        this.log(this.stocks);
         this.loaded = true;
       }
     }
@@ -68,7 +77,7 @@ Module.register("MMM-StockCharts", {
   },
 
   drawChart: function(stock) {
-
+    this.log(this.stocks[stock]);
     // set the allowed units for data grouping
     groupingUnits = [[
       'week',                         // unit name
@@ -79,7 +88,7 @@ Module.register("MMM-StockCharts", {
     ]];
 
     // create the chart
-    Highcharts.stockChart('container', {
+    Highcharts.stockChart('stockChart', {
       rangeSelector: {
         selected: 1,
         enabled: false
@@ -134,14 +143,14 @@ Module.register("MMM-StockCharts", {
       series: [{
         type: 'candlestick',
         name: stock,
-        data: this.stocks[stock].data.ohlc,
+        data: this.stocks[stock].ohlc,
         dataGrouping: {
           units: groupingUnits
         }
       }, {
         type: 'column',
         name: 'Volume',
-        data: this.stocks[stock].data.volume,
+        data: this.stocks[stock].volume,
         yAxis: 1,
         dataGrouping: {
           units: groupingUnits

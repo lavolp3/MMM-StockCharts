@@ -12,48 +12,50 @@ module.exports = NodeHelper.create({
   },
 
   socketNotificationReceived: function(noti, payload) {
+    this.log("Socket notification received: "+noti);
     if (noti == "GET_STOCKDATA") {
-      cfg = payload.config;
-      var interval = parseInt((24 * 60 * 60 * 1000) / 490)          //500 calls allowed in 24 hours
-      this.log(Math.Round(interval/1000));
+      this.config = payload;
+      var interval = Math.round((24 * 60 * 60 * 1000) / 400)          //500 calls allowed in 24 hours
+      this.log(interval);
       var counter = [0,0];
       var _this = this;
+      _this.callAPI(this.config.symbols[counter[0]], this.config.ma[counter[1]]);
       setInterval(() => {
-        _this.callAPI(cfg, cfg.stocks[counter[0]], cfg.ma[counter[1]]);
         counter[1] += 1;
-        if (counter[1] == cfg.ma.length) {
+        if (counter[1] == _this.config.ma.length) {
           counter[0] += 1;
           counter[1] = 0;
         }
-        if (counter[0] == cfg.stocks.length) {
+        if (counter[0] == _this.config.symbols.length) {
           counter[0] = 0;
         }
+        _this.callAPI(this.config.symbols[counter[0]], this.config.ma[counter[1]]);
         _this.log("Counter: "+counter);
       }, interval)
     }
   },
 
-  callAPI: function(cfg, symbol, func) {
-    var url = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=";
-    url += symbol + "&apikey=" + cfg.apiKey;
-
+  callAPI: function(symbol, func) {
+    var url = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=" + symbol + "&apikey=" + this.config.apiKey;
+    this.log("API Call: "+url);
+    var _this = this
+    var data = null;
     request(url, (error, response, body)=>{
       //this.log("[AVSTOCK] API is called - ", symbol)
-      var data = null;
       if (error) {
-        this.log("API Error: ", error);
+        _this.log("API Error: ", error);
         return;
       }
       data = JSON.parse(body);
       if (data.hasOwnProperty("Note")) {
-        this.log("[AVSTOCK] Error: API Call limit exceeded.");
+        _this.log("Error: API Call limit exceeded.");
       }
       if (data.hasOwnProperty("Error Message")) {
-        this.log("[AVSTOCK] Error:", data["Error Message"]);
+        _this.log("Error:", data["Error Message"]);
       }
       if (data["Time Series (Daily)"]) {
-        //console.log("[AVSTOCK] Response is parsed - ", symbol)
-        this.processData(symbol, data);
+        _this.log("Response is parsed - "+symbol)
+        _this.processData(symbol, data);
       }
     })
   },
@@ -72,18 +74,20 @@ module.exports = NodeHelper.create({
     for (var k in keys) {
       index = keys[k];
       ohlc.push([
-        moment(k, "YYYY-MM-DD").format("x"), // the date
+        parseInt(moment(index).format("x")), // the date
         parseFloat(series[index]["1. open"]), // open
-        parseFloat(series[index]["2. open"]), // high
-        parseFloat(series[index]["3. open"]), // low
-        parseFloat(series[index]["4. open"]) // close
+        parseFloat(series[index]["2. high"]), // high
+        parseFloat(series[index]["3. low"]), // low
+        parseFloat(series[index]["4. close"]) // close
       ]);
 
       volume.push([
-        moment(k, "YYYY-MM-DD").format("x"), // the date
-        parseInt(series[index]["5. open"]) // the volume
+        parseInt(moment(index).format("x")), // the date
+        parseInt(series[index]["5. volume"]) // the volume
       ]);
     }
+    this.log(ohlc);
+    this.log(volume);
     this.sendSocketNotification("UPDATE_STOCK", {
       stock: symbol,
       data: {
