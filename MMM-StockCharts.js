@@ -4,15 +4,20 @@ Module.register("MMM-StockCharts", {
   defaults: {
     apiKey : "",
     timeFormat: "DD-MM HH:mm",
-    symbols : ["MNKD"],
-    alias: ["APPLE", "", "SAMSUNG Electronics"],
-    updateInterval: 10 * 1000,
-    chartDays: 60,
+    inactive: ["22:30", "8:00"],
+    updateInterval: 30 * 1000,
+    symbols : ["MNKD", "TNDM"],
+    alias: ["Mannkind"],
+    chartInterval: "daily",          // choose from ["intraday", "daily", "weekly", "monthly"]
+    intraDayInterval: "5min",        // choose from ["1min", "5min", "15min", "30min", "60min"]
+    intervals: 30,
     decimals : 4,
-    candleSticks: false,
+    candleSticks: true,
     coloredCandles: true,
-    ma: ["SMA"],           //can be "SMA" or "EMA"
-    maPeriod: "200",         //can be any numerical value. 200 is common in stock analysis
+    movingAverages: {
+      ma: "EMA",
+      periods: [20, 200]
+    },
     premiumAccount: false,   // To change poolInterval, set this to true - Only For Premium Account
     debug: true
   },
@@ -80,11 +85,14 @@ Module.register("MMM-StockCharts", {
     this.log(this.stocks[stock]);
     // set the allowed units for data grouping
     groupingUnits = [[
-      'week',                         // unit name
-      [1]                             // allowed multiples
+      'day',
+      [1]
+    ], [
+      'week',
+      [1]
     ], [
       'month',
-      [1, 2, 3, 4, 6]
+      [1]
     ]];
 
     // create the chart
@@ -92,6 +100,12 @@ Module.register("MMM-StockCharts", {
       rangeSelector: {
         selected: 1,
         enabled: false
+      },
+
+      chart: {
+        backgroundColor: '#000',
+        plotBackgroundColor: '#000',
+        plotBorderWidth: '2'
       },
 
       title: {
@@ -132,7 +146,6 @@ Module.register("MMM-StockCharts", {
       exporting: {
     		enabled: false,
       },
-
       navigator: {
     		enabled: false,
       },
@@ -144,17 +157,21 @@ Module.register("MMM-StockCharts", {
         type: 'candlestick',
         name: stock,
         data: this.stocks[stock].ohlc,
-        dataGrouping: {
+        //color: '#eee',
+        //upColor: '',
+        lineColor: '#eee'
+        /*dataGrouping: {
           units: groupingUnits
-        }
+        }*/
       }, {
         type: 'column',
         name: 'Volume',
         data: this.stocks[stock].volume,
         yAxis: 1,
-        dataGrouping: {
+        color: '#eee'
+        /*dataGrouping: {
           units: groupingUnits
-        }
+        }*/
       }]
     });
   },

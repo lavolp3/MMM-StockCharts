@@ -15,28 +15,49 @@ module.exports = NodeHelper.create({
     this.log("Socket notification received: "+noti);
     if (noti == "GET_STOCKDATA") {
       this.config = payload;
-      var interval = Math.round((24 * 60 * 60 * 1000) / 400)          //500 calls allowed in 24 hours
-      this.log(interval);
-      var counter = [0,0];
-      var _this = this;
-      _this.callAPI(this.config.symbols[counter[0]], this.config.ma[counter[1]]);
-      setInterval(() => {
-        counter[1] += 1;
-        if (counter[1] == _this.config.ma.length) {
-          counter[0] += 1;
-          counter[1] = 0;
-        }
-        if (counter[0] == _this.config.symbols.length) {
-          counter[0] = 0;
-        }
-        _this.callAPI(this.config.symbols[counter[0]], this.config.ma[counter[1]]);
-        _this.log("Counter: "+counter);
-      }, interval)
+      if ( moment().isAfter(moment(this.config.inactive[0], "HH:mm")) || moment().isBefore(moment(this.config.inactive[1], "HH:mm"))) {
+        this.log("Inactivity time. No Api calls between "+this.config.inactive[0]+" and "+this.config.inactive[1])
+      } else {
+        var inactivity = moment.duration()
+        var interval = Math.round((24 * 60 * 60 * 1000) / 400)          //500 calls allowed in 24 hours
+        var callArray = this.createAPICalls();
+        var _this = this;
+        _this.callAPI(this.config.symbols[counter[0]], this.config.movingAverages.ma, this.config.movingAverages.periods[counter[1]]);
+        setInterval(() => {
+          counter[1] += 1;
+          if (counter[1] == _this.config.ma.length) {
+            counter[0] += 1;
+            counter[1] = 0;
+          }
+          if (counter[0] == _this.config.symbols.length) {
+            counter[0] = 0;
+          }
+          _this.callAPI(this.config.symbols[counter[0]], this.config.ma[counter[1]]);
+          _this.log("Counter: "+counter);
+        }, interval)
+      }
     }
   },
 
+  //https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=MSFT&apikey=demo
+  //https://www.alphavantage.co/query?function=EMA&symbol=MSFT&interval=weekly&time_period=10&series_type=open&apikey=demo
+
+  createAPICalls: function() {
+    var callArray = [];
+    var ma = this.config.movingAverages;
+    var func = "TIME_SERIES_" + this.config.chartInterval.toUpperCase();
+    for (var s = 0; s < this.config.symbols.length; s++) {
+      if (ma.ma != "") {
+        for (m = 0; m < ma.periods; m++) {
+          callArray.push([ma.ma, ma.periods[m], "&symbol=" + this.config.symbols[s] + "&function=" + func ])
+        }
+      }
+    }
+    return callArray;
+  },
+
   callAPI: function(symbol, func) {
-    var url = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=" + symbol + "&apikey=" + this.config.apiKey;
+    var url = "https://www.alphavantage.co/query?symbol=" + symbol + "&apikey=" + this.config.apiKey;
     this.log("API Call: "+url);
     var _this = this
     var data = null;
@@ -68,7 +89,7 @@ module.exports = NodeHelper.create({
       volume = [];
 
     var keys = Object.keys(series);
-    var dayLimit = (this.config.chartDays > 90) ? 90 : this.config.chartDays;
+    var dayLimit = (this.config.intervals > 90) ? 90 : this.config.intervals;
     keys = keys.slice(0, dayLimit).sort();
 
     for (var k in keys) {
