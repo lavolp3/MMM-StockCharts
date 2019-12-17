@@ -15,6 +15,7 @@ module.exports = NodeHelper.create({
     this.log("Socket notification received: "+noti);
     if (noti == "GET_STOCKDATA") {
       this.config = payload;
+	  var counter = 0;
       if ( moment().isAfter(moment(this.config.inactive[0], "HH:mm")) || moment().isBefore(moment(this.config.inactive[1], "HH:mm"))) {
         this.log("Inactivity time. No Api calls between "+this.config.inactive[0]+" and "+this.config.inactive[1])
       } else {
@@ -22,17 +23,10 @@ module.exports = NodeHelper.create({
         var interval = Math.round((24 * 60 * 60 * 1000) / 400)          //500 calls allowed in 24 hours
         var callArray = this.createAPICalls();
         var _this = this;
-        _this.callAPI(this.config.symbols[counter[0]], this.config.movingAverages.ma, this.config.movingAverages.periods[counter[1]]);
+        this.callAPI(callArray[0]);
         setInterval(() => {
-          counter[1] += 1;
-          if (counter[1] == _this.config.ma.length) {
-            counter[0] += 1;
-            counter[1] = 0;
-          }
-          if (counter[0] == _this.config.symbols.length) {
-            counter[0] = 0;
-          }
-          _this.callAPI(this.config.symbols[counter[0]], this.config.ma[counter[1]]);
+          counter = (counter == callArray.length-1) ? 0 : counter + 1;
+          _this.callAPI(callArray[counter]);
           _this.log("Counter: "+counter);
         }, interval)
       }
@@ -40,24 +34,48 @@ module.exports = NodeHelper.create({
   },
 
   //https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=MSFT&apikey=demo
+  //https://www.alphavantage.co/query?function=TIME_SERIES_WEEKLY&symbol=MSFT&apikey=demo
   //https://www.alphavantage.co/query?function=EMA&symbol=MSFT&interval=weekly&time_period=10&series_type=open&apikey=demo
+  //https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=MSFT&interval=5min&apikey=demo
+  
 
   createAPICalls: function() {
     var callArray = [];
-    var ma = this.config.movingAverages;
-    var func = "TIME_SERIES_" + this.config.chartInterval.toUpperCase();
-    for (var s = 0; s < this.config.symbols.length; s++) {
+    var conf = this.config;
+    var symbol, func, interval, timePeriod;
+    var ma = conf.movingAverages;
+    for (var s = 0; s < conf.symbols.length; s++) {
+	    func = "TIME_SERIES_" + conf.chartInterval.toUpperCase()
+	    symbol = conf.symbols[s];
+      interval = (func === "TIME_SERIES_INTRADAY") ? conf.dailyInterval : "";
+	    callArray.push({
+		    symbol: symbol,
+		    func: func,
+  		  interval: interval,
+	  	  timePeriod: ""
+	    });
       if (ma.ma != "") {
-        for (m = 0; m < ma.periods; m++) {
-          callArray.push([ma.ma, ma.periods[m], "&symbol=" + this.config.symbols[s] + "&function=" + func ])
+        interval = conf.chartInterval;
+        for (m = 0; m < ma.periods.length; m++) {
+          callArray.push({
+		        symbol: symbol,
+		        func: func,
+		        interval: interval,
+  		      timePeriod: ma.periods[m]
+	        });
         }
       }
     }
+    this.log(callArray);
     return callArray;
   },
 
-  callAPI: function(symbol, func) {
-    var url = "https://www.alphavantage.co/query?symbol=" + symbol + "&apikey=" + this.config.apiKey;
+  callAPI: function(call) {
+    var url = "https://www.alphavantage.co/query?function=" + call.func 
+	  + "?symbol=" + call.symbol 
+	  + (call.timePeriod != "") ? ("&time_period" + call.timePeriod) : ""
+	  + (call.interval != "") ? ("&interval" + call.interval) : ""
+	  + "&apikey=" + this.config.apiKey;
     this.log("API Call: "+url);
     var _this = this
     var data = null;
@@ -70,11 +88,9 @@ module.exports = NodeHelper.create({
       data = JSON.parse(body);
       if (data.hasOwnProperty("Note")) {
         _this.log("Error: API Call limit exceeded.");
-      }
-      if (data.hasOwnProperty("Error Message")) {
+      } else if (data.hasOwnProperty("Error Message")) {
         _this.log("Error:", data["Error Message"]);
-      }
-      if (data["Time Series (Daily)"]) {
+      } else {
         _this.log("Response is parsed - "+symbol)
         _this.processData(symbol, data);
       }
