@@ -7,7 +7,7 @@ Module.register("MMM-StockCharts", {
     inactive: ["22:30", "8:00"],
     updateInterval: 30 * 1000,
     symbols : ["MNKD", "TNDM"],
-    alias: ["Mannkind"],
+    alias: ["Mannkind", "Tandem"],
     chartInterval: "daily",          // choose from ["intraday", "daily", "weekly", "monthly"]
     intraDayInterval: "5min",        // choose from ["1min", "5min", "15min", "30min", "60min"]
     intervals: 30,
@@ -15,7 +15,7 @@ Module.register("MMM-StockCharts", {
     candleSticks: true,
     coloredCandles: true,
     movingAverages: {
-      ma: "EMA",
+      t: "EMA",
       periods: [20, 200]
     },
     premiumAccount: false,   // To change poolInterval, set this to true - Only For Premium Account
@@ -62,10 +62,15 @@ Module.register("MMM-StockCharts", {
 
   socketNotificationReceived: function(noti, payload) {
     if (noti == "UPDATE_STOCK") {
-      this.log(payload);
-      if (this.config.symbols.includes(payload.stock)) {
+      this.log("Payload received: "+payload);
+      if (this.config.symbols.includes(payload.call.stock)) {
         this.log("Updating stock data...");
-        this.stocks[payload.stock] = payload.data;
+        if (payload.func.includes("TIME_SERIES")) {
+          this.stocks[payload.call.stock]["ohlc"] = payload.data.values;
+          this.stocks[payload.call.stock]["volume"] = payload.data.volume;
+        } else {
+          this.stocks[payload.call.stock][payload.call.func][payload.call.maPeriod] = payload.data.values;
+        }
         this.log(this.stocks);
         this.loaded = true;
       }
